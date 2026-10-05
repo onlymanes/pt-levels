@@ -70,8 +70,9 @@ const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
 let COVERAGE = [], NAMES = {};
 const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
-// 默认标签：她的核心 13 只（SPY/QQQ 置顶）
-const DEFAULT_TICKERS = ["SPY","QQQ","CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
+// 默认标签：SPY/QQQ 置顶，其后四个固定标的，再加其余 11 只
+const DEFAULT_TICKERS = ["SPY","QQQ","000001.SS","510300.SS","GC=F","CL=F",
+  "CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
 
 function ensureChart() {
   if (chart) return;
@@ -93,12 +94,12 @@ function clearPriceLines() {
   priceLines = [];
 }
 
-async function load(raw) {
+async function load(raw, syncInput = true) {
   const ticker = (raw || '').trim().toUpperCase();
   if (!ticker) return;
   document.querySelectorAll('#tabs button').forEach(b =>
     b.classList.toggle('active', b.dataset.ticker === ticker));
-  $('ticker').value = ticker;
+  if (syncInput) $('ticker').value = ticker;
   $('err').style.display = 'none';
   // —— 验证：格式 + 覆盖名单 ——
   if (!TICKER_RE.test(ticker)) {
@@ -184,7 +185,7 @@ fetch('data/tickers.json')
 
 $('go').addEventListener('click', () => load($('ticker').value));
 $('ticker').addEventListener('keydown', e => { if (e.key === 'Enter') load($('ticker').value); });
-load('SPY');
+load('SPY', false);
 </script>
 </body>
 </html>
