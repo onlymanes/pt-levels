@@ -8,6 +8,8 @@
 import json
 import os
 import sys
+import time
+import urllib.request
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -30,10 +32,13 @@ TICKERS = ["QQQ", "SPY", "CEG", "VICI", "CCJ", "VST", "BE",
 # 非美股标的的中文显示名（前端用）
 NAMES = {
     "000001.SS": "上证指数",
-    "510300.SS": "沪深300ETF",
+    "000300": "沪深300指数",
     "GC=F": "黄金连续",
     "CL=F": "原油连续",
 }
+
+# 东方财富数据源（Yahoo 缺历史数据的 A 股指数）：ticker -> eastmoney secid
+EASTMONEY_SOURCE = {"000300": "1.000300"}
 
 
 def load_tickers():
@@ -58,6 +63,44 @@ WARNING_TEXT = {
     "notice": "当前价位处于历史成交稀薄区，结果仅供参考。",
     "none": "",
 }
+
+
+def fetch_eastmoney_daily(secid, years=2):
+    """东方财富日 K，返回与 fetch_daily 相同列的 DataFrame（升序）。
+    行格式：日期,开盘,收盘,最高,最低,成交量,成交额,..."""
+    from datetime import date, timedelta
+    today = date.today()
+    beg = (today - timedelta(days=years * 366)).strftime("%Y%m%d")
+    end = today.strftime("%Y%m%d")
+    url = (f"https://push2his.eastmoney.com/api/qt/stock/kline/get"
+           f"?secid={secid}&klt=101&fqt=0&beg={beg}&end={end}"
+           f"&fields1=f1,f2,f3,f4,f5&fields2=f51,f52,f53,f54,f55,f56,f57")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    klines = None
+    for attempt in range(3):
+        try:
+            raw = urllib.request.urlopen(req, timeout=30).read().decode()
+            klines = json.loads(raw)["data"]["klines"]
+            break
+        except Exception:
+            if attempt == 2:
+                return None
+            time.sleep(5)
+    rows = []
+    for k in klines or []:
+        p = k.split(",")
+        if len(p) < 6:
+            continue
+        try:
+            rows.append({"date": p[0], "open": float(p[1]), "close": float(p[2]),
+                         "high": float(p[3]), "low": float(p[4]),
+                         "volume": float(p[5])})
+        except ValueError:
+            continue
+    if not rows:
+        return None
+    df = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
+    return df[["date", "open", "high", "low", "close", "volume"]]
 
 
 def fetch_daily(ticker):
@@ -91,7 +134,10 @@ def latest_signal(df):
 
 
 def build_ticker(ticker):
-    df = fetch_daily(ticker)
+    if ticker in EASTMONEY_SOURCE:
+        df = fetch_eastmoney_daily(EASTMONEY_SOURCE[ticker])
+    else:
+        df = fetch_daily(ticker)
     if df is None or len(df) < MIN_ROWS:
         print(f"{ticker}: 数据不足，跳过", flush=True)
         return False
