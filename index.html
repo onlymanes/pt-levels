@@ -11,9 +11,11 @@
   header { padding:28px 24px 8px; max-width:1080px; margin:0 auto; }
   header h1 { margin:0 0 6px; font-size:22px; }
   header p { margin:0; color:var(--muted); font-size:13px; }
-  .tabs { max-width:1080px; margin:16px auto 0; padding:0 24px; display:flex; gap:8px; flex-wrap:wrap; }
-  .tabs button { padding:8px 14px; font-size:14px; border:1px solid var(--line); border-radius:20px; background:#fff; color:var(--ink); cursor:pointer; }
-  .tabs button.active { background:#222; color:#fff; border-color:#222; }
+  .search { max-width:1080px; margin:16px auto 0; padding:0 24px; display:flex; gap:8px; }
+  .search input { flex:1; padding:10px 12px; font-size:15px; border:1px solid var(--line); border-radius:8px; text-transform:uppercase; }
+  .search button { padding:10px 22px; font-size:15px; border:0; border-radius:8px; background:#222; color:#fff; cursor:pointer; }
+  .search button:disabled { opacity:.5; cursor:default; }
+  #hint { max-width:1080px; margin:8px auto 0; padding:0 24px; color:var(--muted); font-size:12px; }
   #warn { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; }
   #warn div { border-radius:8px; padding:10px 14px; font-size:14px; }
   #warn.anomaly div { background:#fdecea; border:1px solid #f5a3a3; color:#a02020; }
@@ -31,10 +33,16 @@
 <body>
 <header>
   <h1>AI 量化支撑压力位</h1>
-  <p>选择标的，查看 K 线图与 AI 量化支撑位 / 压力位。数据每日收盘后更新。</p>
+  <p>输入标的代码，查看 K 线图与 AI 量化支撑位 / 压力位。数据每日收盘后更新。</p>
 </header>
 
-<div class="tabs" id="tabs"></div>
+<div class="search">
+  <input id="ticker" placeholder="输入标的代码，如 AAPL" maxlength="12" autocomplete="off"
+         spellcheck="false" list="tickerList">
+  <datalist id="tickerList"></datalist>
+  <button id="go">查询</button>
+</div>
+<div id="hint">覆盖标的加载中…</div>
 
 <div id="warn"><div id="warnText"></div></div>
 <div id="err"></div>
@@ -53,9 +61,10 @@
 
 <script src="lightweight-charts.standalone.production.js"></script>
 <script>
-const TICKERS = ["QQQ","SPY","CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
+const TICKER_RE = /^[A-Z0-9.\-]{1,12}$/;
 const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
+let COVERAGE = [];
 
 function ensureChart() {
   if (chart) return;
@@ -77,14 +86,26 @@ function clearPriceLines() {
   priceLines = [];
 }
 
-async function load(ticker) {
-  document.querySelectorAll('#tabs button').forEach(b =>
-    b.classList.toggle('active', b.dataset.ticker === ticker));
+async function load(raw) {
+  const ticker = (raw || '').trim().toUpperCase();
+  if (!ticker) return;
   $('err').style.display = 'none';
+  // —— 验证：格式 + 覆盖名单 ——
+  if (!TICKER_RE.test(ticker)) {
+    $('err').textContent = '标的代码格式不正确（仅允许字母、数字、. 和 -，最多 12 位）。';
+    $('err').style.display = 'block';
+    return;
+  }
+  if (COVERAGE.length && !COVERAGE.includes(ticker)) {
+    $('err').textContent = '暂未覆盖该标的（当前覆盖 ' + COVERAGE.length + ' 只，输入框可下拉查看）。';
+    $('err').style.display = 'block';
+    return;
+  }
   $('warn').style.display = 'none';
   $('warn').className = '';
   $('meta').style.display = 'none';
   $('loading').style.display = 'block';
+  $('go').disabled = true;
   try {
     const res = await fetch('data/' + encodeURIComponent(ticker) + '.json');
     if (!res.ok) throw new Error('数据暂不可用，请稍后重试。');
@@ -112,17 +133,27 @@ async function load(ticker) {
     $('err').style.display = 'block';
   } finally {
     $('loading').style.display = 'none';
+    $('go').disabled = false;
   }
 }
 
-const tabsEl = $('tabs');
-TICKERS.forEach(t => {
-  const b = document.createElement('button');
-  b.textContent = t;
-  b.dataset.ticker = t;
-  b.addEventListener('click', () => load(t));
-  tabsEl.appendChild(b);
-});
+// 覆盖名单：驱动输入框自动补全与校验
+fetch('data/tickers.json')
+  .then(r => r.json())
+  .then(d => {
+    COVERAGE = d.tickers || [];
+    const dl = $('tickerList');
+    COVERAGE.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t;
+      dl.appendChild(o);
+    });
+    $('hint').textContent = '当前覆盖 ' + COVERAGE.length + ' 只标的，数据每日收盘后更新。';
+  })
+  .catch(() => { $('hint').textContent = ''; });
+
+$('go').addEventListener('click', () => load($('ticker').value));
+$('ticker').addEventListener('keydown', e => { if (e.key === 'Enter') load($('ticker').value); });
 load('SPY');
 </script>
 </body>

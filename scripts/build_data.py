@@ -26,6 +26,21 @@ import volume_profile as vp  # noqa: E402
 
 TICKERS = ["QQQ", "SPY", "CEG", "VICI", "CCJ", "VST", "BE",
            "TSLA", "GOOGL", "URA", "TLT", "PFE", "NVDA"]
+
+
+def load_tickers():
+    """覆盖名单：优先读仓库根目录 tickers.txt（一行一个），没有则用内置 13 只。"""
+    path = os.path.join(ROOT, "tickers.txt")
+    if os.path.exists(path):
+        out = []
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                t = line.strip().upper()
+                if t and not t.startswith("#") and t not in out:
+                    out.append(t)
+        if out:
+            return out
+    return TICKERS
 DISCLAIMER = "仅供研究参考，不构成投资建议。"
 MIN_ROWS = 60
 CANDLE_DAYS = 180
@@ -108,8 +123,15 @@ def build_ticker(ticker):
 
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
-    ok = sum(build_ticker(t) for t in TICKERS)
-    print(f"完成 {ok}/{len(TICKERS)}", flush=True)
+    tickers = load_tickers()
+    print(f"覆盖标的 {len(tickers)} 只", flush=True)
+    ok = sum(build_ticker(t) for t in tickers)
+    # 名单本身也发布，供前端做输入校验与自动补全
+    done = sorted(t for t in tickers
+                  if os.path.exists(os.path.join(DATA_DIR, f"{t}.json")))
+    with open(os.path.join(DATA_DIR, "tickers.json"), "w", encoding="utf-8") as f:
+        json.dump({"tickers": done, "count": len(done)}, f, ensure_ascii=False)
+    print(f"完成 {ok}/{len(tickers)}", flush=True)
     if ok == 0:
         sys.exit(1)
 
