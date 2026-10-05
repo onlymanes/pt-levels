@@ -61,10 +61,11 @@
 
 <script src="lightweight-charts.standalone.production.js"></script>
 <script>
-const TICKER_RE = /^[A-Z0-9.\-]{1,12}$/;
+const TICKER_RE = /^[A-Z0-9.\-=]{1,12}$/;
 const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
-let COVERAGE = [];
+let COVERAGE = [], NAMES = {};
+const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
 
 function ensureChart() {
   if (chart) return;
@@ -118,7 +119,7 @@ async function load(raw) {
     priceLines.push(candleSeries.createPriceLine({ price: d.resistance, color: '#ef5350', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '压力位' }));
     chart.timeScale().fitContent();
 
-    $('mTicker').textContent = d.ticker;
+    $('mTicker').textContent = dispName(d.ticker);
     $('mDate').textContent = d.as_of;
     $('mSup').textContent = d.support.toFixed(2);
     $('mRes').textContent = d.resistance.toFixed(2);
@@ -142,10 +143,12 @@ fetch('data/tickers.json')
   .then(r => r.json())
   .then(d => {
     COVERAGE = d.tickers || [];
+    NAMES = d.names || {};
     const dl = $('tickerList');
     COVERAGE.forEach(t => {
       const o = document.createElement('option');
       o.value = t;
+      if (NAMES[t]) o.label = NAMES[t];
       dl.appendChild(o);
     });
     $('hint').textContent = '当前覆盖 ' + COVERAGE.length + ' 只标的，数据每日收盘后更新。';

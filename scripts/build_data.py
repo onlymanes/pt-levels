@@ -27,6 +27,14 @@ import volume_profile as vp  # noqa: E402
 TICKERS = ["QQQ", "SPY", "CEG", "VICI", "CCJ", "VST", "BE",
            "TSLA", "GOOGL", "URA", "TLT", "PFE", "NVDA"]
 
+# 非美股标的的中文显示名（前端用）
+NAMES = {
+    "000001.SS": "上证指数",
+    "000300.SS": "沪深300指数",
+    "GC=F": "黄金连续",
+    "CL=F": "原油连续",
+}
+
 
 def load_tickers():
     """覆盖名单：优先读仓库根目录 tickers.txt（一行一个），没有则用内置 13 只。"""
@@ -126,11 +134,13 @@ def main():
     tickers = load_tickers()
     print(f"覆盖标的 {len(tickers)} 只", flush=True)
     ok = sum(build_ticker(t) for t in tickers)
-    # 名单本身也发布，供前端做输入校验与自动补全
-    done = sorted(t for t in tickers
-                  if os.path.exists(os.path.join(DATA_DIR, f"{t}.json")))
+    # 名单本身也发布，供前端做输入校验与自动补全（保持 tickers.txt 的顺序）
+    done = [t for t in tickers
+            if os.path.exists(os.path.join(DATA_DIR, f"{t}.json"))]
     with open(os.path.join(DATA_DIR, "tickers.json"), "w", encoding="utf-8") as f:
-        json.dump({"tickers": done, "count": len(done)}, f, ensure_ascii=False)
+        json.dump({"tickers": done, "count": len(done),
+                   "names": {t: NAMES[t] for t in done if t in NAMES}},
+                  f, ensure_ascii=False)
     print(f"完成 {ok}/{len(tickers)}", flush=True)
     if ok == 0:
         sys.exit(1)
