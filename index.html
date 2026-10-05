@@ -156,7 +156,7 @@ function renderTabs() {
   tabsEl.innerHTML = '';
   DEFAULT_TICKERS.forEach(t => {
     const b = document.createElement('button');
-    b.textContent = dispName(t);
+    b.textContent = NAMES[t] || t;  // 标签只显示中文名，不带括号代码
     b.dataset.ticker = t;
     b.addEventListener('click', () => load(t));
     tabsEl.appendChild(b);
