@@ -11,6 +11,9 @@
   header { padding:28px 24px 8px; max-width:1080px; margin:0 auto; }
   header h1 { margin:0 0 6px; font-size:22px; }
   header p { margin:0; color:var(--muted); font-size:13px; }
+  .tabs { max-width:1080px; margin:16px auto 0; padding:0 24px; display:flex; gap:8px; flex-wrap:wrap; }
+  .tabs button { padding:8px 14px; font-size:14px; border:1px solid var(--line); border-radius:20px; background:#fff; color:var(--ink); cursor:pointer; }
+  .tabs button.active { background:#222; color:#fff; border-color:#222; }
   .search { max-width:1080px; margin:16px auto 0; padding:0 24px; display:flex; gap:8px; }
   .search input { flex:1; padding:10px 12px; font-size:15px; border:1px solid var(--line); border-radius:8px; text-transform:uppercase; }
   .search button { padding:10px 22px; font-size:15px; border:0; border-radius:8px; background:#222; color:#fff; cursor:pointer; }
@@ -36,6 +39,7 @@
   <p>输入标的代码，查看 K 线图与 AI 量化支撑位 / 压力位。数据每日收盘后更新。</p>
 </header>
 
+<div class="tabs" id="tabs"></div>
 <div class="search">
   <input id="ticker" placeholder="输入标的代码，如 AAPL" maxlength="12" autocomplete="off"
          spellcheck="false" list="tickerList">
@@ -66,6 +70,8 @@ const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
 let COVERAGE = [], NAMES = {};
 const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
+// 默认标签：她的核心 13 只（SPY/QQQ 置顶）
+const DEFAULT_TICKERS = ["SPY","QQQ","CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
 
 function ensureChart() {
   if (chart) return;
@@ -90,6 +96,9 @@ function clearPriceLines() {
 async function load(raw) {
   const ticker = (raw || '').trim().toUpperCase();
   if (!ticker) return;
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.ticker === ticker));
+  $('ticker').value = ticker;
   $('err').style.display = 'none';
   // —— 验证：格式 + 覆盖名单 ——
   if (!TICKER_RE.test(ticker)) {
@@ -120,6 +129,7 @@ async function load(raw) {
     chart.timeScale().fitContent();
 
     $('mTicker').textContent = dispName(d.ticker);
+    $('mTicker').dataset.code = d.ticker;
     $('mDate').textContent = d.as_of;
     $('mSup').textContent = d.support.toFixed(2);
     $('mRes').textContent = d.resistance.toFixed(2);
@@ -138,6 +148,22 @@ async function load(raw) {
   }
 }
 
+// 默认标签（等名单加载完再渲染，以便显示中文名）
+function renderTabs() {
+  const tabsEl = $('tabs');
+  tabsEl.innerHTML = '';
+  DEFAULT_TICKERS.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = dispName(t);
+    b.dataset.ticker = t;
+    b.addEventListener('click', () => load(t));
+    tabsEl.appendChild(b);
+  });
+  const cur = ($('mTicker').dataset.code || 'SPY');
+  tabsEl.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', b.dataset.ticker === cur));
+}
+
 // 覆盖名单：驱动输入框自动补全与校验
 fetch('data/tickers.json')
   .then(r => r.json())
@@ -152,8 +178,9 @@ fetch('data/tickers.json')
       dl.appendChild(o);
     });
     $('hint').textContent = '当前覆盖 ' + COVERAGE.length + ' 只标的，数据每日收盘后更新。';
+    renderTabs();
   })
-  .catch(() => { $('hint').textContent = ''; });
+  .catch(() => { $('hint').textContent = ''; renderTabs(); });
 
 $('go').addEventListener('click', () => load($('ticker').value));
 $('ticker').addEventListener('keydown', e => { if (e.key === 'Enter') load($('ticker').value); });
