@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 量化支撑压力位</title>
+<style>
+  :root { --green:#26a69a; --red:#ef5350; --ink:#222; --muted:#888; --line:#e5e5e5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); background:#fafafa; }
+  header { padding:28px 24px 8px; max-width:1080px; margin:0 auto; }
+  header h1 { margin:0 0 6px; font-size:22px; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  .tabs { max-width:1080px; margin:16px auto 0; padding:0 24px; display:flex; gap:8px; flex-wrap:wrap; }
+  .tabs button { padding:8px 14px; font-size:14px; border:1px solid var(--line); border-radius:20px; background:#fff; color:var(--ink); cursor:pointer; }
+  .tabs button.active { background:#222; color:#fff; border-color:#222; }
+  #warn { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; }
+  #warn div { border-radius:8px; padding:10px 14px; font-size:14px; }
+  #warn.anomaly div { background:#fdecea; border:1px solid #f5a3a3; color:#a02020; }
+  #warn.notice div { background:#fff7e6; border:1px solid #f0c36d; color:#8a5a00; }
+  #meta { max-width:1080px; margin:12px auto 0; padding:0 24px; display:flex; gap:24px; font-size:14px; flex-wrap:wrap; }
+  #meta b { font-size:17px; }
+  .sup { color:var(--green); } .res { color:var(--red); }
+  #chart { max-width:1080px; height:480px; margin:12px auto 0; padding:0 24px; }
+  #chartInner { height:100%; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  #err { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--red); font-size:14px; }
+  #loading { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--muted); font-size:14px; }
+  footer { max-width:1080px; margin:24px auto 40px; padding:0 24px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI 量化支撑压力位</h1>
+  <p>选择标的，查看 K 线图与 AI 量化支撑位 / 压力位。数据每日收盘后更新。</p>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<div id="warn"><div id="warnText"></div></div>
+<div id="err"></div>
+<div id="loading">正在加载，请稍候…</div>
+
+<div id="meta" style="display:none">
+  <span>标的 <b id="mTicker">–</b></span>
+  <span>数据日期 <b id="mDate">–</b></span>
+  <span>支撑位 <b class="sup" id="mSup">–</b></span>
+  <span>压力位 <b class="res" id="mRes">–</b></span>
+</div>
+
+<div id="chart"><div id="chartInner"></div></div>
+
+<footer>仅供研究参考，不构成投资建议。日线数据每日收盘后更新。</footer>
+
+<script src="lightweight-charts.standalone.production.js"></script>
+<script>
+const TICKERS = ["QQQ","SPY","CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
+const $ = id => document.getElementById(id);
+let chart = null, candleSeries = null, priceLines = [];
+
+function ensureChart() {
+  if (chart) return;
+  chart = LightweightCharts.createChart($('chartInner'), {
+    layout: { background: { color: '#fff' }, textColor: '#555' },
+    grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+    timeScale: { borderColor: '#e5e5e5' },
+    rightPriceScale: { borderColor: '#e5e5e5' },
+  });
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#26a69a', downColor: '#ef5350',
+    wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    borderVisible: false,
+  });
+}
+
+function clearPriceLines() {
+  priceLines.forEach(pl => { try { candleSeries.removePriceLine(pl); } catch (e) {} });
+  priceLines = [];
+}
+
+async function load(ticker) {
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.ticker === ticker));
+  $('err').style.display = 'none';
+  $('warn').style.display = 'none';
+  $('warn').className = '';
+  $('meta').style.display = 'none';
+  $('loading').style.display = 'block';
+  try {
+    const res = await fetch('data/' + encodeURIComponent(ticker) + '.json');
+    if (!res.ok) throw new Error('数据暂不可用，请稍后重试。');
+    const d = await res.json();
+
+    ensureChart();
+    clearPriceLines();
+    candleSeries.setData(d.candles);
+    priceLines.push(candleSeries.createPriceLine({ price: d.support, color: '#26a69a', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '支撑位' }));
+    priceLines.push(candleSeries.createPriceLine({ price: d.resistance, color: '#ef5350', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '压力位' }));
+    chart.timeScale().fitContent();
+
+    $('mTicker').textContent = d.ticker;
+    $('mDate').textContent = d.as_of;
+    $('mSup').textContent = d.support.toFixed(2);
+    $('mRes').textContent = d.resistance.toFixed(2);
+    $('meta').style.display = 'flex';
+    if (d.warning === 'anomaly' || d.warning === 'notice') {
+      $('warnText').textContent = (d.warning === 'anomaly' ? '⚠ ' : '● ') + d.warning_text;
+      $('warn').style.display = 'block';
+      $('warn').className = d.warning;
+    }
+  } catch (e) {
+    $('err').textContent = e.message || '请求失败，请稍后重试。';
+    $('err').style.display = 'block';
+  } finally {
+    $('loading').style.display = 'none';
+  }
+}
+
+const tabsEl = $('tabs');
+TICKERS.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.dataset.ticker = t;
+  b.addEventListener('click', () => load(t));
+  tabsEl.appendChild(b);
+});
+load('SPY');
+</script>
+</body>
+</html>
