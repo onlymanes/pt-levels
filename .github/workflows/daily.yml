@@ -1,0 +1,43 @@
+name: 每日更新支撑压力位数据
+
+on:
+  schedule:
+    # 美股收盘后（UTC 周二~周六 01:30，覆盖周一~周五交易日）
+    - cron: "30 1 * * 2-6"
+  workflow_dispatch: {}  # 允许手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉取私有算法模块
+        # volume_profile.py 只在构建环境使用，不进入本公开仓库
+        # （通过 deploy key 只读拉取，见 README）
+        uses: actions/checkout@v4
+        with:
+          repository: onlymanes/pt-engine-private
+          ssh-key: ${{ secrets.PROD_REPO_SSH_KEY }}
+          path: .prod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: pip install yfinance pandas numpy scipy requests
+
+      - name: 生成数据
+        run: PROD_DIR=$PWD/.prod python scripts/build_data.py
+
+      - name: 提交更新
+        run: |
+          git config user.name "pt-levels-bot"
+          git config user.email "pt-levels-bot@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "每日数据更新 $(date -u +%F)"
+          git push
