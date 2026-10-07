@@ -31,8 +31,10 @@
   #chartInner { height:100%; border:1px solid var(--line); border-radius:8px; background:#fff; position:relative; }
   #legend { position:absolute; top:8px; left:8px; z-index:5; pointer-events:none;
     background:rgba(255,255,255,.88); border:1px solid var(--line); border-radius:6px;
-    padding:6px 10px; font-size:12px; line-height:1.8; color:#555; }
-  #legend b { font-size:13px; }
+    padding:6px 10px; font-size:11px; line-height:1.8; color:#555;
+    display:grid; grid-template-columns:auto auto; gap:2px 14px; align-items:center; }
+  #legend b { font-size:12px; }
+  #legend div { white-space:nowrap; }
   #err { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--red); font-size:14px; }
   #loading { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--muted); font-size:14px; }
   footer { max-width:1080px; margin:24px auto 40px; padding:0 24px; color:var(--muted); font-size:12px; }
@@ -150,13 +152,13 @@ async function load(raw, syncInput = true) {
     $('mMidSup').textContent = d.mid_support != null ? d.mid_support.toFixed(2) : '–';
     $('mMidRes').textContent = d.mid_resistance != null ? d.mid_resistance.toFixed(2) : '–';
     $('meta').style.display = 'flex';
-    // 图表左侧图例（细线=短期，粗线=中期）
+    // 图表左侧图例：两行两列（细线=短期，粗线=中期）
     $('legend').innerHTML =
-      '<div><span style="color:#26a69a">─</span> 短期支撑位 <b>' + d.support.toFixed(2) + '</b></div>' +
       '<div><span style="color:#ef5350">─</span> 短期压力位 <b>' + d.resistance.toFixed(2) + '</b></div>' +
-      (d.mid_support != null ? '<div><span style="color:#26a69a">━</span> 中期支撑位 <b>' + d.mid_support.toFixed(2) + '</b></div>' : '') +
-      (d.mid_resistance != null ? '<div><span style="color:#ef5350">━</span> 中期压力位 <b>' + d.mid_resistance.toFixed(2) + '</b></div>' : '');
-    $('legend').style.display = 'block';
+      '<div><span style="color:#26a69a">─</span> 短期支撑位 <b>' + d.support.toFixed(2) + '</b></div>' +
+      (d.mid_resistance != null ? '<div><span style="color:#ef5350">━</span> 中期压力位 <b>' + d.mid_resistance.toFixed(2) + '</b></div>' : '') +
+      (d.mid_support != null ? '<div><span style="color:#26a69a">━</span> 中期支撑位 <b>' + d.mid_support.toFixed(2) + '</b></div>' : '');
+    $('legend').style.display = 'grid';
     if (d.warning === 'anomaly' || d.warning === 'notice') {
       $('warnText').textContent = (d.warning === 'anomaly' ? '⚠ ' : '● ') + d.warning_text;
       $('warn').style.display = 'block';
