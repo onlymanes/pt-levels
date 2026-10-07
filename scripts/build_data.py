@@ -40,6 +40,9 @@ NAMES = {
 # 东方财富数据源（Yahoo 缺历史数据的 A 股指数）：ticker -> eastmoney secid
 EASTMONEY_SOURCE = {"000300": "1.000300"}
 
+# Yahoo 代码别名（前端显示用短代码，实际取数用完整 Yahoo 代码）：ticker -> yahoo 代码
+YAHOO_ALIAS = {"BTC": "BTC-USD"}
+
 
 def load_tickers():
     """覆盖名单：优先读仓库根目录 tickers.txt（一行一个），没有则用内置 13 只。"""
@@ -137,7 +140,7 @@ def build_ticker(ticker):
     if ticker in EASTMONEY_SOURCE:
         df = fetch_eastmoney_daily(EASTMONEY_SOURCE[ticker])
     else:
-        df = fetch_daily(ticker)
+        df = fetch_daily(YAHOO_ALIAS.get(ticker, ticker))
     if df is None or len(df) < MIN_ROWS:
         print(f"{ticker}: 数据不足，跳过", flush=True)
         return False
