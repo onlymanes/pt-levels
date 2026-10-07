@@ -60,6 +60,8 @@ def load_tickers():
 DISCLAIMER = "仅供研究参考，不构成投资建议。"
 MIN_ROWS = 60
 CANDLE_DAYS = 180
+MIN_DAYS_SHORT = 20   # 短期窗口下限（原有口径）
+MIN_DAYS_MID = 55     # 中期窗口下限
 
 WARNING_TEXT = {
     "anomaly": "信号异常，建议回避。",
@@ -145,9 +147,17 @@ def build_ticker(ticker):
         print(f"{ticker}: 数据不足，跳过", flush=True)
         return False
     as_of = df["date"].iloc[-1]
-    max_window = vp.fixed_max_window(20)
-    win, T, _anchor, _note = vp.select_window(df, max_window=max_window)
+    # 短期（原有口径）：minT=20
+    max_window = vp.fixed_max_window(MIN_DAYS_SHORT)
+    win, T, _anchor, _note = vp.select_window(df, min_days=MIN_DAYS_SHORT,
+                                              max_window=max_window)
     prof = vp.build_profile(win, n_bins=2000, q1=0.20, q2=0.80, body_thresh=0.20)
+    # 中期：minT=55
+    max_window_mid = vp.fixed_max_window(MIN_DAYS_MID)
+    win_mid, T_mid, _a2, _n2 = vp.select_window(df, min_days=MIN_DAYS_MID,
+                                                max_window=max_window_mid)
+    prof_mid = vp.build_profile(win_mid, n_bins=2000, q1=0.20, q2=0.80,
+                                body_thresh=0.20)
     try:
         signal = latest_signal(df)
     except Exception as e:  # noqa: BLE001 - 信号算不出时按异常处理，不输出价位
@@ -165,6 +175,8 @@ def build_ticker(ticker):
         "as_of": as_of,
         "support": round(float(prof["PT1"]), 2),
         "resistance": round(float(prof["PT2"]), 2),
+        "mid_support": round(float(prof_mid["PT1"]), 2),
+        "mid_resistance": round(float(prof_mid["PT2"]), 2),
         "warning": warning,
         "warning_text": WARNING_TEXT[warning],
         "candles": candles,
@@ -174,7 +186,9 @@ def build_ticker(ticker):
     with open(os.path.join(DATA_DIR, f"{ticker}.json"), "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
     print(f"{ticker}: as_of={as_of} T={T} 支撑={payload['support']} "
-          f"压力={payload['resistance']} 信号={signal}", flush=True)
+          f"压力={payload['resistance']} T_mid={T_mid} "
+          f"中期支撑={payload['mid_support']} 中期压力={payload['mid_resistance']} "
+          f"信号={signal}", flush=True)
     return True
 
 

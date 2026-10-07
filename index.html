@@ -28,7 +28,11 @@
   #meta b { font-size:17px; }
   .sup { color:var(--green); } .res { color:var(--red); }
   #chart { max-width:1080px; height:480px; margin:12px auto 0; padding:0 24px; }
-  #chartInner { height:100%; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  #chartInner { height:100%; border:1px solid var(--line); border-radius:8px; background:#fff; position:relative; }
+  #legend { position:absolute; top:8px; left:8px; z-index:5; pointer-events:none;
+    background:rgba(255,255,255,.88); border:1px solid var(--line); border-radius:6px;
+    padding:6px 10px; font-size:12px; line-height:1.8; color:#555; }
+  #legend b { font-size:13px; }
   #err { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--red); font-size:14px; }
   #loading { display:none; max-width:1080px; margin:12px auto 0; padding:0 24px; color:var(--muted); font-size:14px; }
   footer { max-width:1080px; margin:24px auto 40px; padding:0 24px; color:var(--muted); font-size:12px; }
@@ -56,11 +60,13 @@
 <div id="meta" style="display:none">
   <span>标的 <b id="mTicker">–</b></span>
   <span>数据日期 <b id="mDate">–</b></span>
-  <span>支撑位 <b class="sup" id="mSup">–</b></span>
-  <span>压力位 <b class="res" id="mRes">–</b></span>
+  <span>短期支撑位 <b class="sup" id="mSup">–</b></span>
+  <span>短期压力位 <b class="res" id="mRes">–</b></span>
+  <span>中期支撑位 <b class="sup" id="mMidSup">–</b></span>
+  <span>中期压力位 <b class="res" id="mMidRes">–</b></span>
 </div>
 
-<div id="chart"><div id="chartInner"></div></div>
+<div id="chart"><div id="chartInner"><div id="legend" style="display:none"></div></div></div>
 
 <footer>仅供研究参考，不构成投资建议。日线数据每日收盘后更新。</footer>
 
@@ -126,8 +132,14 @@ async function load(raw, syncInput = true) {
     ensureChart();
     clearPriceLines();
     candleSeries.setData(d.candles);
-    priceLines.push(candleSeries.createPriceLine({ price: d.support, color: '#26a69a', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '支撑位' }));
-    priceLines.push(candleSeries.createPriceLine({ price: d.resistance, color: '#ef5350', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '压力位' }));
+    // 短期（原 PT1/PT2 口径）：细虚线；标签移到图表左侧图例，右侧轴不再显示
+    priceLines.push(candleSeries.createPriceLine({ price: d.support, color: '#26a69a', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '短期支撑位' }));
+    priceLines.push(candleSeries.createPriceLine({ price: d.resistance, color: '#ef5350', lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: '短期压力位' }));
+    // 中期（minT=55）：粗实线
+    if (d.mid_support != null && d.mid_resistance != null) {
+      priceLines.push(candleSeries.createPriceLine({ price: d.mid_support, color: '#26a69a', lineWidth: 4, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: false, title: '中期支撑位' }));
+      priceLines.push(candleSeries.createPriceLine({ price: d.mid_resistance, color: '#ef5350', lineWidth: 4, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible: false, title: '中期压力位' }));
+    }
     chart.timeScale().fitContent();
 
     $('mTicker').textContent = dispName(d.ticker);
@@ -135,7 +147,16 @@ async function load(raw, syncInput = true) {
     $('mDate').textContent = d.as_of;
     $('mSup').textContent = d.support.toFixed(2);
     $('mRes').textContent = d.resistance.toFixed(2);
+    $('mMidSup').textContent = d.mid_support != null ? d.mid_support.toFixed(2) : '–';
+    $('mMidRes').textContent = d.mid_resistance != null ? d.mid_resistance.toFixed(2) : '–';
     $('meta').style.display = 'flex';
+    // 图表左侧图例（细线=短期，粗线=中期）
+    $('legend').innerHTML =
+      '<div><span style="color:#26a69a">─</span> 短期支撑位 <b>' + d.support.toFixed(2) + '</b></div>' +
+      '<div><span style="color:#ef5350">─</span> 短期压力位 <b>' + d.resistance.toFixed(2) + '</b></div>' +
+      (d.mid_support != null ? '<div><span style="color:#26a69a">━</span> 中期支撑位 <b>' + d.mid_support.toFixed(2) + '</b></div>' : '') +
+      (d.mid_resistance != null ? '<div><span style="color:#ef5350">━</span> 中期压力位 <b>' + d.mid_resistance.toFixed(2) + '</b></div>' : '');
+    $('legend').style.display = 'block';
     if (d.warning === 'anomaly' || d.warning === 'notice') {
       $('warnText').textContent = (d.warning === 'anomaly' ? '⚠ ' : '● ') + d.warning_text;
       $('warn').style.display = 'block';
