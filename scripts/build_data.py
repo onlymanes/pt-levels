@@ -31,14 +31,14 @@ TICKERS = ["QQQ", "SPY", "CEG", "VICI", "CCJ", "VST", "BE",
 
 # 非美股标的的中文显示名（前端用）
 NAMES = {
-    "000001.SS": "上证指数",
+    "000016": "上证50指数",
     "000300": "沪深300指数",
     "GC=F": "黄金连续",
     "CL=F": "原油连续",
 }
 
 # 东方财富数据源（Yahoo 缺历史数据的 A 股指数）：ticker -> eastmoney secid
-EASTMONEY_SOURCE = {"000300": "1.000300"}
+EASTMONEY_SOURCE = {"000300": "1.000300", "000016": "1.000016"}
 
 # Yahoo 代码别名（前端显示用短代码，实际取数用完整 Yahoo 代码）：ticker -> yahoo 代码
 YAHOO_ALIAS = {"BTC": "BTC-USD"}
