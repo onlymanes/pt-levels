@@ -46,7 +46,7 @@
   <p>输入标的代码，查看 K 线图与 AI 量化支撑位 / 压力位。数据每日收盘后更新。</p>
 </header>
 
-<div class="tabs" id="tabs"></div>
+<div id="tabs"></div>
 <div class="search">
   <input id="ticker" placeholder="输入标的代码，如 AAPL" maxlength="12" autocomplete="off"
          spellcheck="false" list="tickerList">
@@ -79,9 +79,13 @@ const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
 let COVERAGE = [], NAMES = {};
 const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
-// 默认标签：SPY/QQQ 置顶，其后四个固定标的，再加其余 11 只
-const DEFAULT_TICKERS = ["SPY","QQQ","000016","000300","GC=F","CL=F",
-  "CEG","VICI","CCJ","VST","BE","TSLA","GOOGL","URA","TLT","PFE","NVDA"];
+// 默认标签（三行）：第一行指数贵金属，第二三行个股
+// （等名单加载完再渲染，以便显示中文名）
+const DEFAULT_TICKERS = [
+  ["SPY","QQQ","000001.SS","000016","000300","GC=F","CL=F","TLT"],
+  ["CEG","VST","CCJ","BE","BWXT","URA","FCX","USAR","WMB","COIN"],
+  ["VICI","NFLX","AMT","HROW","BEAM","TEM","NVO","RKT","KTOS","NTR","DIS"],
+];
 
 function ensureChart() {
   if (chart) return;
@@ -173,16 +177,21 @@ async function load(raw, syncInput = true) {
   }
 }
 
-// 默认标签（等名单加载完再渲染，以便显示中文名）
+// 默认标签（三行，等名单加载完再渲染，以便显示中文名）
 function renderTabs() {
   const tabsEl = $('tabs');
   tabsEl.innerHTML = '';
-  DEFAULT_TICKERS.forEach(t => {
-    const b = document.createElement('button');
-    b.textContent = NAMES[t] || t;  // 标签只显示中文名，不带括号代码
-    b.dataset.ticker = t;
-    b.addEventListener('click', () => load(t));
-    tabsEl.appendChild(b);
+  DEFAULT_TICKERS.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'tabs';
+    row.forEach(t => {
+      const b = document.createElement('button');
+      b.textContent = NAMES[t] || t;  // 标签只显示中文名，不带括号代码
+      b.dataset.ticker = t;
+      b.addEventListener('click', () => load(t));
+      rowEl.appendChild(b);
+    });
+    tabsEl.appendChild(rowEl);
   });
   const cur = ($('mTicker').dataset.code || 'SPY');
   tabsEl.querySelectorAll('button').forEach(b =>
