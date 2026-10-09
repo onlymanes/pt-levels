@@ -79,6 +79,14 @@ const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
 let COVERAGE = [], NAMES = {};
 const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
+// 中文显示名兜底：tickers.json 随数据构建更新，未更新前用此处保证标签中文
+const DEFAULT_NAMES = {
+  "000001.SS": "上证指数",
+  "000016": "上证50指数",
+  "000300": "沪深300指数",
+  "GC=F": "黄金连续",
+  "CL=F": "原油连续",
+};
 // 默认标签（四行）：第一行指数贵金属，第二三四行个股
 // （等名单加载完再渲染，以便显示中文名）
 const DEFAULT_TICKERS = [
@@ -187,7 +195,7 @@ function renderTabs() {
     rowEl.className = 'tabs';
     row.forEach(t => {
       const b = document.createElement('button');
-      b.textContent = NAMES[t] || t;  // 标签只显示中文名，不带括号代码
+      b.textContent = NAMES[t] || DEFAULT_NAMES[t] || t;  // 标签只显示中文名，不带括号代码
       b.dataset.ticker = t;
       b.addEventListener('click', () => load(t));
       rowEl.appendChild(b);
