@@ -79,12 +79,13 @@ const $ = id => document.getElementById(id);
 let chart = null, candleSeries = null, priceLines = [];
 let COVERAGE = [], NAMES = {};
 const dispName = t => NAMES[t] ? NAMES[t] + ' (' + t + ')' : t;
-// 默认标签（三行）：第一行指数贵金属，第二三行个股
+// 默认标签（四行）：第一行指数贵金属，第二三四行个股
 // （等名单加载完再渲染，以便显示中文名）
 const DEFAULT_TICKERS = [
-  ["SPY","QQQ","000001.SS","000016","000300","GC=F","CL=F","TLT"],
-  ["CEG","VST","CCJ","BE","BWXT","URA","FCX","USAR","WMB","COIN"],
+  ["SPY","QQQ","000016","000300","GC=F","CL=F","TLT"],
+  ["CEG","VST","CCJ","BE","BWXT","URA","FCX","USAR","WMB","COIN","ADBE"],
   ["VICI","NFLX","AMT","HROW","BEAM","TEM","NVO","RKT","KTOS","NTR","DIS"],
+  ["AAPL","MSFT","NVDA","TSLA","GOOGL","AMZN","META","SPCX","MCD","OXY"],
 ];
 
 function ensureChart() {
